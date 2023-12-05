@@ -47,6 +47,8 @@ var the_key_map : Array[Dictionary] = [
     { "keys": ["Ctrl+B"],                       "type": MOTION, "motion": "move_by_page", "motion_args": { "forward": false } },
     { "keys": ["Ctrl+D"],                       "type": MOTION, "motion": "move_by_scroll", "motion_args": { "forward": true } },
     { "keys": ["Ctrl+U"],                       "type": MOTION, "motion": "move_by_scroll", "motion_args": { "forward": false } },
+    { "keys": ["Shift+["],                       "type": MOTION, "motion": "move_by_paragraph", "motion_args": { "forward": true } },
+    { "keys": ["Shift+]"],                       "type": MOTION, "motion": "move_by_paragraph", "motion_args": { "forward": false } },
     { "keys": ["Shift+BackSlash"],              "type": MOTION, "motion": "move_to_column" },
     { "keys": ["W"],                            "type": MOTION, "motion": "move_by_words", "motion_args": { "forward": true, "word_end": false, "big_word": false } },
     { "keys": ["Shift+W"],                      "type": MOTION, "motion": "move_by_words", "motion_args": { "forward": true, "word_end": false, "big_word": true } },
@@ -268,6 +270,19 @@ class Command:
     static func move_by_scroll(cur: Position, args: Dictionary, ed: EditorAdaptor, vim: Vim) -> Position:
         var count = ed.get_visible_line_count(ed.first_visible_line(), ed.last_visible_line())
         return Position.new(ed.next_unfolded_line(cur.line, count / 2, args.forward), cur.column)
+        
+    static func move_by_paragraph(cur: Position, args: Dictionary, ed: EditorAdaptor, vim: Vim) -> Position:
+        var line = cur.line;
+        var prev_empty: bool = ed.get_line(line).strip_edges().is_empty();
+        var delta = 1 if args.forward else -1;
+        line += delta;
+        while line >= 0 and line < ed.get_line_count():
+            var text: String = ed.get_line(line) .strip_edges();
+            if text.is_empty() and !prev_empty:
+                return Position.new(0, text.length())
+            prev_empty = text.is_empty();
+        line += delta;
+        return Position.new(line, 0)
 
     static func move_by_page(cur: Position, args: Dictionary, ed: EditorAdaptor, vim: Vim) -> Position:
         var count = ed.get_visible_line_count(ed.first_visible_line(), ed.last_visible_line())
@@ -386,7 +401,7 @@ class Command:
         for from in [Position.new(symbol.line, 0), Position.new(0, 0)]:
             var parser = GDScriptParser.new(ed, from)
             if not parser.parse_until(symbol):
-               continue
+                continue
 
             if symbol.char in ")]}":
                 parser.stack.reverse()
@@ -1633,4 +1648,3 @@ class CommandDispatcher:
             print("  Motion: %s %s to %s" % [motion, motion_args, result])
 
         return result
-
